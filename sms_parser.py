@@ -85,12 +85,14 @@ def tokenize_msg(msg):
     msg = msg.replace("\n", " ")
     return msg
     
-def msg_pairs_to_simple(paires):
+def msg_pairs_to_simple(paires, tokenize=False):
     simple = ""
     if not(paires):
         return ""
     for paire in paires:
-        question, answer = tokenize_msg(paire[0]), tokenize_msg(paire[1])
+        question, answer = paire[0], paire[1]
+        if tokenize:
+            question, answer = tokenize_msg(question), tokenize_msg(answer)
         simple += f"Question : {question}\nAnswer : {answer}\n"
     return simple
 
@@ -101,6 +103,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parses XML files outputed by Super Backup or Silence into something LARA can understand")
     parser.add_argument("input_file", help="XML file to read from")
     parser.add_argument("-o", dest="output_file", default="data_sms.txt", help="Specify the output file")
+    parser.add_argument("--merge_interval", dest="merge_interval", default=30, type=int, help="interval (in seconds) under which two messages from the same sender get merged")
+    parser.add_argument("--discussion_interval", dest="discussion_interval", default=60, type=int, help="interval (in minutes) under which two messages are considered to be from the same discussion")
+    parser.add_argument("--tokenize", dest="tokenize", default=False, action="store_true", help="tokenize the output string. Activate only if it isn't already done by your Word2Vec")
     
     args = parser.parse_args()
     
@@ -132,9 +137,12 @@ if __name__ == "__main__":
     print("Correspondants:")
     for correspondant in messages.keys():
         print(correspondant)
-        discussions[correspondant] = get_discussion(messages, correspondant, threshold=60, merge_threshold=30)
+        discussions[correspondant] = get_discussion(messages, correspondant, threshold=args.discussion_interval, merge_threshold=args.merge_interval)
         pairs[correspondant] = get_msg_pairs(discussions[correspondant])
-        simple += msg_pairs_to_simple(pairs[correspondant])
+        simple += msg_pairs_to_simple(pairs[correspondant], tokenize=args.tokenize)
+        
+    if args.tokenize:
+        print("Warning: tokenization is enabled")
         
     with open(args.output_file, "w") as f:
         f.write(simple)
